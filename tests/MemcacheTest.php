@@ -20,9 +20,12 @@ class MemcacheTest extends \PHPUnit_Framework_TestCase
 	}
 
 	public function testSet() {
+		self::$cache = new \vakata\cache\Memcache();
+
 		$this->assertEquals('v1', self::$cache->set('key', 'v1'));
 		$this->assertEquals('v2', self::$cache->set('key', 'v2', 'cache'));
 		$this->assertEquals('v3', self::$cache->set('expire', 'v3', 'cache', 1));
+		$this->assertEquals('v3', self::$cache->set('expire2', 'v3', null, 1));
 	}
 	/**
 	 * @depends testSet

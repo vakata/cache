@@ -7,13 +7,13 @@ class Filecache implements CacheInterface
     protected $dir = false;
     protected $namespace = 'default';
 
-    public function __construct($dir, $default_namespace = 'default')
+    public function __construct($dir, $defaultNamespace = 'default')
     {
         $this->dir = @realpath($dir);
         if (!$this->dir) {
             throw new CacheException('Invalid cache dir');
         }
-        $this->namespace = $default_namespace;
+        $this->namespace = $defaultNamespace;
     }
 
     protected function addNamespace($key, $partition = null)
@@ -80,7 +80,7 @@ class Filecache implements CacheInterface
         return $value;
     }
 
-    public function get($key, $partition = null, $meta_only = false)
+    public function get($key, $partition = null, $metaOnly = false)
     {
         if (!$partition) {
             $partition = $this->namespace;
@@ -105,7 +105,7 @@ class Filecache implements CacheInterface
         }
 
         $value = unserialize(base64_decode($value));
-        if ($meta_only) {
+        if ($metaOnly) {
             unset($value['data']);
 
             return $value;

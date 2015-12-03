@@ -22,7 +22,7 @@ interface CacheInterface
      */
     public function prepare($key, $partition = null);
     public function set($key, $value, $partition = null, $expires = 14400);
-    public function get($key, $partition = null, $meta_only = false);
+    public function get($key, $partition = null, $metaOnly = false);
     public function delete($key, $partition = null);
     public function getSet($key, callable $value = null, $partition = null, $time = 14400);
 }

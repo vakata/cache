@@ -9,7 +9,7 @@ class Memcache implements CacheInterface
     protected $pool = array();
     protected $namespace = 'default';
 
-    public function __construct($pool = '127.0.0.1', $default_namespace = 'default')
+    public function __construct($pool = '127.0.0.1', $defaultNamespace = 'default')
     {
         if (is_string($pool)) {
             $pool = array('host' => $pool);
@@ -17,7 +17,7 @@ class Memcache implements CacheInterface
         if (isset($pool['host'])) {
             $pool = array($pool);
         }
-        $this->namespace = $default_namespace;
+        $this->namespace = $defaultNamespace;
         $this->pool = $pool;
         $this->connect();
     }
@@ -111,7 +111,7 @@ class Memcache implements CacheInterface
         return $orig_value;
     }
 
-    public function get($key, $partition = null, $meta_only = false)
+    public function get($key, $partition = null, $metaOnly = false)
     {
         if (!$this->connected) {
             throw new CacheException('Cache not connected');
@@ -140,7 +140,7 @@ class Memcache implements CacheInterface
         }
 
         $meta = unserialize(base64_decode($meta));
-        if ($meta_only) {
+        if ($metaOnly) {
             return $meta;
         }
         $value = '';
