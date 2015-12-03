@@ -1,0 +1,40 @@
+{
+    "name": "vakata/cache",
+    "description": "A collection of caching classes with a common interface",
+    "keywords": [
+        "vakata",
+        "cache"
+    ],
+    "homepage": "https://github.com/vakata/cache",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "vakata",
+            "email": "cache@vakata.com",
+            "homepage": "http://www.vakata.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php" : ">=5.4.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit" : "4.*",
+        "codeclimate/php-test-reporter": "dev-master"
+    },
+    "autoload": {
+        "psr-4": {
+            "vakata\\cache\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "vakata\\cache\\test\\": "tests"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "psr2": "php-cs-fixer fix ./src",
+        "phpdoc": "phpDocumentor -d ./src -t ./docs"
+    }
+}
