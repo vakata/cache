@@ -1,5 +1,8 @@
 <?php
-class FilecacheTest extends PHPUnit_Framework_TestCase
+
+namespace vakata\cache\test;
+
+class FilecacheTest extends \PHPUnit_Framework_TestCase
 {
 	protected static $dir = null;
 	protected static $cache = null;
