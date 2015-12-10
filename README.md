@@ -19,7 +19,25 @@ $ composer require vakata/cache
 ## Usage
 
 ``` php
+// create an instance (with file based cache)
+// caches will be stored in the dir specified by the first argument
+$cache = new \vakata\cache\Filecache(__DIR__ . '/cache'); 
+// to use Memcached instead simply create a memcached instance:
+// $cache = new \vakata\cache\Memcache(); // by default connects to 127.0.0.1
 
+// simple get / set
+$cache->set('key', 'value'); // key is stored and "value" is returned
+$cache->get('key'); // "value"
+
+// using prepare ensures that a single client updates the cache at any given moment
+$cache->prepare('long-running-operation');
+$data = long_running_operation();
+$cache->set('long-running-operation', $data);
+
+// there is a special getSet method which gets the current key value and if it does not exist - invokes a callable, stores the result and returns it:
+$cache->getSet('some-key', function () {
+    return some_long_running_operation();
+});
 ```
 
 ## Testing
