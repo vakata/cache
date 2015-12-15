@@ -146,7 +146,7 @@ Get a cached value if it exists, if not - invoke a callback, store the result in
 ```php
 public function getSet (  
     string $key,  
-    callable|null $value,  
+    callable $value,  
     string $partition,  
     integer|string $expires  
 ) : mixed    
@@ -155,7 +155,7 @@ public function getSet (
 |  | Type | Description |
 |-----|-----|-----|
 | `$key` | `string` | the key to look for / store in |
-| `$value` | `callable`, `null` | a function to invoke if the value is not present |
+| `$value` | `callable` | a function to invoke if the value is not present |
 | `$partition` | `string` | the namespace to use (if not supplied the default will be used) |
 | `$expires` | `integer`, `string` | time in seconds (or strtotime parseable expression) to store the value for (14400 by default) |
 |  |  |  |

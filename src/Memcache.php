@@ -207,11 +207,11 @@ class Memcache implements CacheInterface
     /**
      * Get a cached value if it exists, if not - invoke a callback, store the result in cache and return it.
      * @method getSet
-     * @param  string        $key       the key to look for / store in
-     * @param  callable|null $value     a function to invoke if the value is not present
-     * @param  string        $partition the namespace to use (if not supplied the default will be used)
-     * @param  integer|string $expires  time in seconds (or strtotime parseable expression) to store the value for (14400 by default)
-     * @return mixed                    the cached value
+     * @param  string         $key       the key to look for / store in
+     * @param  callable       $value     a function to invoke if the value is not present
+     * @param  string         $partition the namespace to use (if not supplied the default will be used)
+     * @param  integer|string $expires   time in seconds (or strtotime parseable expression) to store the value for (14400 by default)
+     * @return mixed                     the cached value
      */
     public function getSet($key, callable $value, $partition = null, $time = 14400)
     {
