@@ -8,7 +8,12 @@ class Memcache implements CacheInterface
     protected $memcache = null;
     protected $pool = array();
     protected $namespace = 'default';
-
+    /**
+     * Create an instance
+     * @method __construct
+     * @param  string      $pool             a memcached server or an array of servers
+     * @param  string      $defaultNamespace the default namespace to store in (namespaces are collections that can be easily cleared in bulk)
+     */
     public function __construct($pool = '127.0.0.1', $defaultNamespace = 'default')
     {
         if (is_string($pool)) {
@@ -57,7 +62,11 @@ class Memcache implements CacheInterface
 
         return $partition.'_'.$tmp.'_'.$key;
     }
-
+    /**
+     * Clears a namespace.
+     * @method clear
+     * @param  string $partition the namespace to clear (if not specified the default namespace is cleared)
+     */
     public function clear($partition = null)
     {
         if (!$this->connected) {
@@ -68,7 +77,13 @@ class Memcache implements CacheInterface
         }
         $this->memcache->increment($partition);
     }
-
+    /**
+     * Prepare a key for insertion (reserve if you will).
+     * Useful when a long running operation is about to happen and you do not want several clients to update the key at the same time.
+     * @method prepare
+     * @param  string  $key       the key to prepare
+     * @param  string  $partition the namespace to store the key in (if not supplied the default will be used)
+     */
     public function prepare($key, $partition = null)
     {
         if (!$partition) {
@@ -77,7 +92,15 @@ class Memcache implements CacheInterface
         $key = $this->addNamespace($key, $partition);
         $this->memcache->set($key.'_meta', 'wait', MEMCACHE_COMPRESSED, time() + 10);
     }
-
+    /**
+     * Stora a value in a key.
+     * @method set
+     * @param  string  $key       the key to insert in
+     * @param  mixed   $value     the value to be cached
+     * @param  string  $partition the namespace to store the key in (if not supplied the default will be used)
+     * @param  integer|string $expires   time in seconds (or strtotime parseable expression) to store the value for (14400 by default)
+     * @return mixed the value that was stored
+     */
     public function set($key, $value, $partition = null, $expires = 14400)
     {
         if (!$this->connected) {
@@ -110,7 +133,14 @@ class Memcache implements CacheInterface
 
         return $orig_value;
     }
-
+    /**
+     * Retrieve a value from cache.
+     * @method get
+     * @param  string  $key       the key to retrieve from
+     * @param  string  $partition the namespace to look in (if not supplied the default is used)
+     * @param  boolean $metaOnly  should only metadata be returned (defaults to false)
+     * @return mixed             the stored value
+     */
     public function get($key, $partition = null, $metaOnly = false)
     {
         if (!$this->connected) {
@@ -155,7 +185,12 @@ class Memcache implements CacheInterface
 
         return $value;
     }
-
+    /**
+     * Remove a cached value.
+     * @method delete
+     * @param  string $key       the key to remove
+     * @param  string $partition the namespace to remove from (if not supplied the default namespace will be used)
+     */
     public function delete($key, $partition = null)
     {
         if (!$this->connected) {
@@ -169,8 +204,16 @@ class Memcache implements CacheInterface
             throw new CacheException('Could not delete cache key');
         }
     }
-
-    public function getSet($key, callable $value = null, $partition = null, $time = 14400)
+    /**
+     * Get a cached value if it exists, if not - invoke a callback, store the result in cache and return it.
+     * @method getSet
+     * @param  string        $key       the key to look for / store in
+     * @param  callable|null $value     a function to invoke if the value is not present
+     * @param  string        $partition the namespace to use (if not supplied the default will be used)
+     * @param  integer|string $expires  time in seconds (or strtotime parseable expression) to store the value for (14400 by default)
+     * @return mixed                    the cached value
+     */
+    public function getSet($key, callable $value, $partition = null, $time = 14400)
     {
         try {
             return $this->get($key, $partition);

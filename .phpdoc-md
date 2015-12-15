@@ -1,0 +1,10 @@
+<?php
+return (object)[
+    'rootNamespace' => 'vakata\cache',
+    'destDirectory' => 'docs',
+    'format' => 'github',
+    'classes' => [
+        '\\vakata\\cache\\Memcache',
+        '\\vakata\\cache\\Filecache'
+    ],
+];
