@@ -2,7 +2,7 @@
 
 namespace vakata\cache;
 
-class Redis implements CacheInterface
+class Memcached implements CacheInterface
 {
     protected $socket = null;
     protected $namespace = 'default';
@@ -12,14 +12,14 @@ class Redis implements CacheInterface
      * @param  string      $address          the redis IP and port (127.0.0.1:6379)
      * @param  string      $defaultNamespace the default namespace to store in (namespaces are collections that can be easily cleared in bulk)
      */
-    public function __construct($address = '127.0.0.1:6379', $defaultNamespace = 'default')
+    public function __construct($address = '127.0.0.1:11211', $defaultNamespace = 'default')
     {
         $address = parse_url('//' . ltrim($address, '/'));
         if (!$address) { $address = []; }
-        $address = array_merge($address, [ 'host' => '127.0.0.1', 'port' => '6379']);
+        $address = array_merge($address, [ 'host' => '127.0.0.1', 'port' => '11211']);
         $this->socket = fsockopen($address['host'], $address['port'], $num, $str, 3);
         if (!$this->socket) {
-            throw new CacheException('Could not connect to Redis');
+            throw new CacheException('Could not connect');
         }
     }
 
@@ -30,80 +30,59 @@ class Redis implements CacheInterface
         }
     }
 
-    public function command($command)
-    {
-        if (!is_array($command)) {
-            $command = explode(" ", $command);
-        }
-        foreach ($command as $k => $v) {
-            $v = (string)$v;
-            $command[$k] = '$' . strlen($v) . "\r\n" . $v . "\r\n";
-        }
-        $val = '*' . count($command) . "\r\n" . implode('', $command);
-        $length = strlen($val);
-        $written = 0;
-        while ($written < $length) {
-            $written += fwrite($this->socket, substr($val, $written));
-        }
-        return $this->_read();
-    }
-    protected function _read()
-    {
-        switch (fgetc($this->socket)) {
-            case '+':
-                return trim(fgets($this->socket), "\r\n");
-            case ':':
-                return (int)trim(fgets($this->socket), "\r\n");
-            case '$':
-                $length = (int)trim(fgets($this->socket), "\r\n");
-                if ($length === -1) {
-                    return null;
-                }
-                $return = "";
-                while (strlen($return) < $length) {
-                    $return .= fread($this->socket, $length - strlen($return));
-                }
-                fgets($this->socket);
-                return $return;
-            case '*':
-                $length = (int)trim(fgets($this->socket), "\r\n");
-                $return = [];
-                for ($i = 0; $i < $length; $i++) {
-                    $return[] = $this->_read();
-                }
-                return $return;
-            case '-':
-                throw new CacheException(trim(fgets($this->socket), "\r\n"));
-        }
-    }
-
     protected function _get($key)
     {
         if (!$this->socket) {
             throw new CacheException('Cache not connected');
         }
-        return $this->command(["GET", $key]);
+        fwrite($this->socket, "get " . $key . "\r\n");
+        $data = explode(" ", trim(fgets($this->socket), "\r\n"));
+        if ($data[0] !== "VALUE" || $data[1] !== $key) {
+            return null;
+        }
+        $length = $data[3];
+        $return = "";
+        while (strlen($return) < $length) {
+            $return .= fread($this->socket, $length - strlen($return));
+        }
+        fgets($this->socket);
+        fgets($this->socket);
+        return $return;
     }
     protected function _set($key, $val, $exp = null)
     {
         if (!$this->socket) {
             throw new CacheException('Cache not connected');
         }
-        return $exp === null ? $this->command(["SET", $key, $val]) : $this->command(["SET", $key, $val, 'EX', $exp]);
+        $length = strlen($val);
+        fwrite($this->socket, "set " . $key . " 0 " . ($exp !== null ? time() + $exp : 0) . " " . $length . "\r\n");
+        $written = 0;
+        while ($written < $length) {
+            $written += fwrite($this->socket, substr($val, $written));
+        }
+        fwrite($this->socket, "\r\n");
+        $data = trim(fgets($this->socket), "\r\n");
+
+        if ($data !== "STORED") {
+            throw new CacheException("Could not store " . $data);
+        }
+        return $val;
     }
     protected function _del($key)
     {
         if (!$this->socket) {
             throw new CacheException('Cache not connected');
         }
-        return $this->command(["DEL", $key]);
+        fwrite($this->socket, "delete " . $key . "\r\n");
+        fgets($this->socket);
     }
     protected function _incr($key)
     {
         if (!$this->socket) {
             throw new CacheException('Cache not connected');
         }
-        return $this->command(["INCR", $key]);
+        fwrite($this->socket, "incr " . $key . " 1\r\n");
+        fgets($this->socket);
     }
 
     protected function addNamespace($key, $partition = null)
@@ -166,9 +145,16 @@ class Redis implements CacheInterface
         if ($expires !== null && (int)$expires < 0) {
             $expires = 14400;
         }
+
+        $orig_value = $value;
         $key = $this->addNamespace($key, $partition);
-        $this->_set($key, base64_encode(serialize(array('created' => time(), 'expires' => time() + $expires, 'data' => $value))), $expires);
-        return $value;
+        $value = str_split(base64_encode(serialize($orig_value)), 1000 * 1000);
+
+        $this->_set($key.'_meta', base64_encode(serialize(array('created' => time(), 'expires' => time() + $expires, 'chunks' => count($value)))), $expires);
+        foreach ($value as $k => $v) {
+            $this->_set($key.'_'.$k, $v, $expires);
+        }
+        return $orig_value;
     }
     /**
      * Retrieve a value from cache.
@@ -188,9 +174,13 @@ class Redis implements CacheInterface
 
         $cntr = 0;
         while (true) {
-            $value = $this->_get($key);
-            if ($value === 'wait') {
+            $meta = $this->_get($key.'_meta');
+            if ($meta === null) {
+                return $default;
+            }
+            if ($meta === 'wait') {
                 if (++$cntr > 10) {
+                    $this->_del($key.'_meta');
                     return $default;
                 }
                 usleep(500000);
@@ -199,16 +189,21 @@ class Redis implements CacheInterface
             break;
         }
 
-        if ($value === null) {
-            return $default;
-        }
-
-        $value = unserialize(base64_decode($value));
+        $meta = unserialize(base64_decode($meta));
         if ($metaOnly) {
-            unset($value['data']);
-            return $value;
+            return $meta;
         }
-        return $value['data'];
+        $value = '';
+        for ($i = 0; $i < $meta['chunks']; ++$i) {
+            $tmp = $this->_get($key.'_'.$i);
+            if ($tmp === null) {
+                return $default;
+            }
+            $value .= $tmp;
+        }
+        $value = unserialize(base64_decode($value));
+
+        return $value;
     }
     /**
      * Remove a cached value.
@@ -222,7 +217,7 @@ class Redis implements CacheInterface
             $partition = $this->namespace;
         }
         $key = $this->addNamespace($key, $partition);
-        $this->_del($key);
+        $this->_del($key . '_meta');
     }
     /**
      * Get a cached value if it exists, if not - invoke a callback, store the result in cache and return it.
