@@ -107,11 +107,12 @@ class Filecache implements CacheInterface
      * Retrieve a value from cache.
      * @method get
      * @param  string  $key       the key to retrieve from
+     * @param  string  $default   value to return if key is not found (defaults to `null`)
      * @param  string  $partition the namespace to look in (if not supplied the default is used)
      * @param  boolean $metaOnly  should only metadata be returned (defaults to false)
      * @return mixed             the stored value
      */
-    public function get($key, $partition = null, $metaOnly = false)
+    public function get($key, $default = null, $partition = null, $metaOnly = false)
     {
         if (!$partition) {
             $partition = $this->namespace;
@@ -122,12 +123,12 @@ class Filecache implements CacheInterface
         while (true) {
             $value = @file_get_contents($key);
             if ($value === false) {
-                throw new CacheException('Could not get entry');
+                return $default;
             }
             if ($value === 'wait') {
                 if (++$cntr > 10) {
                     @unlink($key);
-                    throw new CacheException('Could not get cache meta');
+                    return $default;
                 }
                 usleep(500000);
                 continue;
@@ -138,12 +139,11 @@ class Filecache implements CacheInterface
         $value = unserialize(base64_decode($value));
         if ($metaOnly) {
             unset($value['data']);
-
             return $value;
         }
-        if ((int) $value['expires'] < time()) {
+        if ((int)$value['expires'] < time()) {
             @unlink($key);
-            throw new CacheException('Cache content is expired');
+            return $default;
         }
 
         return $value['data'];
@@ -175,20 +175,19 @@ class Filecache implements CacheInterface
      */
     public function getSet($key, callable $value, $partition = null, $time = 14400)
     {
+        $temp = $this->get($key, null, $partition);
+        if ($temp !== null) {
+            return $temp;
+        }
+        $this->prepare($key, $partition);
         try {
-            return $this->get($key, $partition);
+            $value = call_user_func($value);
+            return $this->set($key, $value, $partition, $time);
         } catch (CacheException $e) {
-            $this->prepare($key, $partition);
-            try {
-                $value = call_user_func($value);
-
-                return $this->set($key, $value, $partition, $time);
-            } catch (CacheException $e) {
-                return $value;
-            } catch (\Exception $e) {
-                $this->delete($key, $partition);
-                throw $e;
-            }
+            return $value;
+        } catch (\Exception $e) {
+            $this->delete($key, $partition);
+            throw $e;
         }
     }
 }

@@ -1,12 +1,12 @@
 <?php
 namespace vakata\cache\test;
 
-class MemcacheTest extends \PHPUnit_Framework_TestCase
+class RedisTest extends \PHPUnit_Framework_TestCase
 {
 	protected static $cache = null;
 
 	public static function setUpBeforeClass() {
-		self::$cache = new \vakata\cache\Memcache();
+		self::$cache = new \vakata\cache\Redis();
 		self::$cache->clear();
 		self::$cache->clear('test');
 	}
@@ -20,7 +20,7 @@ class MemcacheTest extends \PHPUnit_Framework_TestCase
 	}
 
 	public function testSet() {
-		self::$cache = new \vakata\cache\Memcache();
+		self::$cache = new \vakata\cache\Redis();
 
 		$this->assertEquals('v1', self::$cache->set('key', 'v1'));
 		$this->assertEquals('v2', self::$cache->set('key', 'v2', 'cache'));

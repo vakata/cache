@@ -2,62 +2,112 @@
 
 namespace vakata\cache;
 
-class Memcache implements CacheInterface
+class Redis implements CacheInterface
 {
-    protected $connected = false;
-    protected $memcache = null;
-    protected $pool = array();
+    protected $socket = null;
     protected $namespace = 'default';
     /**
      * Create an instance
      * @method __construct
-     * @param  string      $pool             a memcached server or an array of servers
+     * @param  string      $address          the redis IP and port (127.0.0.1:6379)
      * @param  string      $defaultNamespace the default namespace to store in (namespaces are collections that can be easily cleared in bulk)
      */
-    public function __construct($pool = '127.0.0.1', $defaultNamespace = 'default')
+    public function __construct($address = '127.0.0.1:6379', $defaultNamespace = 'default')
     {
-        if (is_string($pool)) {
-            $pool = array('host' => $pool);
+        $address = parse_url('//' . ltrim($address, '/'));
+        if (!$address) { $address = []; }
+        $address = array_merge($address, [ 'host' => '127.0.0.1', 'port' => '6379']);
+        $this->socket = fsockopen($address['host'], $address['port'], $num, $str, 3);
+        if (!$this->socket) {
+            throw new CacheException('Could not connect to Redis');
         }
-        if (isset($pool['host'])) {
-            $pool = array($pool);
-        }
-        $this->namespace = $defaultNamespace;
-        $this->pool = $pool;
-        $this->connect();
     }
 
-    protected function connect()
+    public function __destruct()
     {
-        $this->connected = false;
-        $this->memcache = new \Memcache();
-        foreach ($this->pool as $host) {
-            $host = array_merge($host, array('port' => 11211, 'weight' => 1));
-            $this->memcache->addServer($host['host'], $host['port'], true, $host['weight']);
-            $stats = @$this->memcache->getExtendedStats();
-            if ($this->connected || ($stats["{$host['host']}:{$host['port']}"] !== false && sizeof($stats["{$host['host']}:{$host['port']}"]) > 0)) {
-                $this->connected = true;
-            }
+        if ($this->socket) {
+            fclose($this->socket);
         }
+    }
 
-        return $this->connected;
+    public function command($command)
+    {
+        if (!is_array($command)) {
+            $command = explode(" ", $command);
+        }
+        foreach ($command as $k => $v) {
+            $v = (string)$v;
+            $command[$k] = '$' . strlen($v) . "\r\n" . $v . "\r\n";
+        }
+        fwrite($this->socket, '*' . count($command) . "\r\n" . implode('', $command));
+        return $this->_read();
+    }
+    protected function _read()
+    {
+        switch (fgetc($this->socket)) {
+            case '+':
+                return trim(fgets($this->socket), "\r\n");
+            case ':':
+                return (int)trim(fgets($this->socket), "\r\n");
+            case '$':
+                $length = (int)trim(fgets($this->socket), "\r\n");
+                if ($length === -1) {
+                    return null;
+                }
+                $return = $length ? fread($this->socket, $length) : "";
+                fgets($this->socket);
+                return $return;
+            case '*':
+                $length = (int)trim(fgets($this->socket), "\r\n");
+                $return = [];
+                for ($i = 0; $i < $length; $i++) {
+                    $return[] = $this->_read();
+                }
+                return $return;
+            case '-':
+                throw new CacheException(trim(fgets($this->socket), "\r\n"));
+        }
+    }
+
+    protected function _get($key)
+    {
+        if (!$this->socket) {
+            throw new CacheException('Cache not connected');
+        }
+        return $this->command(["GET", $key]);
+    }
+    protected function _set($key, $val, $exp = null)
+    {
+        if (!$this->socket) {
+            throw new CacheException('Cache not connected');
+        }
+        return $exp === null ? $this->command(["SET", $key, $val]) : $this->command(["SET", $key, $val, 'EX', $exp]);
+    }
+    protected function _del($key)
+    {
+        if (!$this->socket) {
+            throw new CacheException('Cache not connected');
+        }
+        return $this->command(["DEL", $key]);
+    }
+    protected function _incr($key)
+    {
+        if (!$this->socket) {
+            throw new CacheException('Cache not connected');
+        }
+        return $this->command(["INCR", $key]);
     }
 
     protected function addNamespace($key, $partition = null)
     {
-        if (!$this->connected) {
-            throw new CacheException('Cache not connected');
-        }
         if (!$partition) {
             $partition = $this->namespace;
         }
 
-        $tmp = $this->memcache->get($partition);
-        if ((int) $tmp === 0) {
+        $tmp = $this->_get($partition);
+        if ((int)$tmp === 0) {
             $tmp = rand(1, 10000);
-            if (!$this->memcache->set($partition, $tmp, 0, 0)) {
-                throw new CacheException('Could not add cache namespace');
-            }
+            $this->_set($partition, $tmp);
         }
 
         return $partition.'_'.$tmp.'_'.$key;
@@ -69,13 +119,10 @@ class Memcache implements CacheInterface
      */
     public function clear($partition = null)
     {
-        if (!$this->connected) {
-            throw new CacheException('Cache not connected');
-        }
         if (!$partition) {
             $partition = $this->namespace;
         }
-        $this->memcache->increment($partition);
+        $this->_incr($partition);
     }
     /**
      * Prepare a key for insertion (reserve if you will).
@@ -90,7 +137,6 @@ class Memcache implements CacheInterface
             $partition = $this->namespace;
         }
         $key = $this->addNamespace($key, $partition);
-        $this->memcache->set($key.'_meta', 'wait', MEMCACHE_COMPRESSED, time() + 10);
     }
     /**
      * Stora a value in a key.
@@ -101,37 +147,20 @@ class Memcache implements CacheInterface
      * @param  integer|string $expires   time in seconds (or strtotime parseable expression) to store the value for (14400 by default)
      * @return mixed the value that was stored
      */
-    public function set($key, $value, $partition = null, $expires = 14400)
+    public function set($key, $value, $partition = null, $expires = null)
     {
-        if (!$this->connected) {
-            throw new CacheException('Cache not connected');
-        }
         if (!$partition) {
             $partition = $this->namespace;
         }
         if (is_string($expires)) {
             $expires = (int) strtotime($expires) - time();
         }
-        if ((int) $expires <= 0) {
+        if ($expires !== null && (int)$expires < 0) {
             $expires = 14400;
         }
-
-        $orig_value = $value;
-
         $key = $this->addNamespace($key, $partition);
-
-        $value = str_split(base64_encode(serialize($value)), 1 * 1024 * 1024);
-
-        $res = true;
-        $res = $res && $this->memcache->set($key.'_meta', base64_encode(serialize(array('created' => time(), 'expires' => time() + $expires, 'chunks' => count($value)))), MEMCACHE_COMPRESSED, $expires);
-        foreach ($value as $k => $v) {
-            $res = $res && $this->memcache->set($key.'_'.$k, $v, MEMCACHE_COMPRESSED, $expires);
-        }
-        if (!$res) {
-            throw new CacheException('Could not save cache key');
-        }
-
-        return $orig_value;
+        $this->_set($key, base64_encode(serialize(array('created' => time(), 'expires' => time() + $expires, 'data' => $value))), $expires);
+        return $value;
     }
     /**
      * Retrieve a value from cache.
@@ -139,29 +168,21 @@ class Memcache implements CacheInterface
      * @param  string  $key       the key to retrieve from
      * @param  string  $default   value to return if key is not found (defaults to `null`)
      * @param  string  $partition the namespace to look in (if not supplied the default is used)
-     * @param  boolean $metaOnly  should only metadata be returned (defaults to `false`)
+     * @param  boolean $metaOnly  should only metadata be returned (defaults to false)
      * @return mixed             the stored value
      */
     public function get($key, $default = null, $partition = null, $metaOnly = false)
     {
-        if (!$this->connected) {
-            throw new CacheException('Cache not connected');
-        }
         if (!$partition) {
             $partition = $this->namespace;
         }
-
         $key = $this->addNamespace($key, $partition);
 
         $cntr = 0;
         while (true) {
-            $meta = $this->memcache->get($key.'_meta');
-            if ($meta === false) {
-                return $default;
-            }
-            if ($meta === 'wait') {
+            $value = $this->_get($key);
+            if ($value === 'wait') {
                 if (++$cntr > 10) {
-                    $this->memcache->delete($key.'_meta');
                     return $default;
                 }
                 usleep(500000);
@@ -170,21 +191,16 @@ class Memcache implements CacheInterface
             break;
         }
 
-        $meta = unserialize(base64_decode($meta));
-        if ($metaOnly) {
-            return $meta;
+        if ($value === null) {
+            return $default;
         }
-        $value = '';
-        for ($i = 0; $i < $meta['chunks']; ++$i) {
-            $tmp = $this->memcache->get($key.'_'.$i);
-            if ($tmp == false) {
-                return $default;
-            }
-            $value .= $tmp;
-        }
-        $value = unserialize(base64_decode($value));
 
-        return $value;
+        $value = unserialize(base64_decode($value));
+        if ($metaOnly) {
+            unset($value['data']);
+            return $value;
+        }
+        return $value['data'];
     }
     /**
      * Remove a cached value.
@@ -194,16 +210,11 @@ class Memcache implements CacheInterface
      */
     public function delete($key, $partition = null)
     {
-        if (!$this->connected) {
-            throw new CacheException('Cache not connected');
-        }
         if (!$partition) {
             $partition = $this->namespace;
         }
         $key = $this->addNamespace($key, $partition);
-        if (!$this->memcache->delete($key.'_meta')) {
-            throw new CacheException('Could not delete cache key');
-        }
+        $this->_del($key);
     }
     /**
      * Get a cached value if it exists, if not - invoke a callback, store the result in cache and return it.
