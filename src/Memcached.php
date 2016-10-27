@@ -8,7 +8,6 @@ class Memcached implements CacheInterface
     protected $namespace = 'default';
     /**
      * Create an instance
-     * @method __construct
      * @param  string      $address          the redis IP and port (127.0.0.1:6379)
      * @param  string      $defaultNamespace the default namespace to store in (namespaces are collections that can be easily cleared in bulk)
      */
@@ -101,7 +100,6 @@ class Memcached implements CacheInterface
     }
     /**
      * Clears a namespace.
-     * @method clear
      * @param  string $partition the namespace to clear (if not specified the default namespace is cleared)
      */
     public function clear($partition = null)
@@ -114,7 +112,6 @@ class Memcached implements CacheInterface
     /**
      * Prepare a key for insertion (reserve if you will).
      * Useful when a long running operation is about to happen and you do not want several clients to update the key at the same time.
-     * @method prepare
      * @param  string  $key       the key to prepare
      * @param  string  $partition the namespace to store the key in (if not supplied the default will be used)
      */
@@ -127,7 +124,6 @@ class Memcached implements CacheInterface
     }
     /**
      * Stora a value in a key.
-     * @method set
      * @param  string  $key       the key to insert in
      * @param  mixed   $value     the value to be cached
      * @param  string  $partition the namespace to store the key in (if not supplied the default will be used)
@@ -158,7 +154,6 @@ class Memcached implements CacheInterface
     }
     /**
      * Retrieve a value from cache.
-     * @method get
      * @param  string  $key       the key to retrieve from
      * @param  string  $default   value to return if key is not found (defaults to `null`)
      * @param  string  $partition the namespace to look in (if not supplied the default is used)
@@ -207,7 +202,6 @@ class Memcached implements CacheInterface
     }
     /**
      * Remove a cached value.
-     * @method delete
      * @param  string $key       the key to remove
      * @param  string $partition the namespace to remove from (if not supplied the default namespace will be used)
      */
@@ -221,7 +215,6 @@ class Memcached implements CacheInterface
     }
     /**
      * Get a cached value if it exists, if not - invoke a callback, store the result in cache and return it.
-     * @method getSet
      * @param  string         $key       the key to look for / store in
      * @param  callable       $value     a function to invoke if the value is not present
      * @param  string         $partition the namespace to use (if not supplied the default will be used)
