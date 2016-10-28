@@ -4,7 +4,7 @@ namespace vakata\cache;
 
 class Filecache implements CacheInterface
 {
-    protected $dir = false;
+    protected $dir;
     protected $namespace = 'default';
 
     /**

@@ -165,12 +165,12 @@ class Memcache implements CacheInterface
             break;
         }
 
-        $meta = unserialize(base64_decode($meta));
+        $temp = unserialize(base64_decode($meta));
         if ($metaOnly) {
-            return $meta;
+            return $temp;
         }
         $value = '';
-        for ($i = 0; $i < $meta['chunks']; ++$i) {
+        for ($i = 0; $i < $temp['chunks']; ++$i) {
             $tmp = $this->memcache->get($key.'_'.$i);
             if ($tmp == false) {
                 return $default;

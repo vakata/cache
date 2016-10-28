@@ -53,8 +53,8 @@ class Memcached implements CacheInterface
         if (!$this->socket) {
             throw new CacheException('Cache not connected');
         }
-        $length = strlen($val);
-        fwrite($this->socket, "set " . $key . " 0 " . ($exp !== null ? time() + $exp : 0) . " " . $length . "\r\n");
+        $length = strlen((string)$val);
+        fwrite($this->socket, "set " . $key . " 0 " . ($exp !== null ? time() + $exp : 0) . " " . ((string)$length) . "\r\n");
         $written = 0;
         while ($written < $length) {
             $written += fwrite($this->socket, substr($val, $written));

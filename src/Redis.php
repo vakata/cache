@@ -32,7 +32,7 @@ class Redis implements CacheInterface
     public function command($command)
     {
         if (!is_array($command)) {
-            $command = explode(" ", $command);
+            $command = explode(" ", (string)$command);
         }
         foreach ($command as $k => $v) {
             $v = (string)$v;
