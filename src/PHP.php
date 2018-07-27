@@ -31,8 +31,8 @@ class PHP implements CacheInterface
             $partition = $this->namespace;
         }
         $partition = md5($partition) . '.php';
-        if (is_file($this->dir.DIRECTORY_SEPARATOR.$partition)) {
-            unlink($this->dir.DIRECTORY_SEPARATOR.$partition);
+        if (is_file($this->dir . DIRECTORY_SEPARATOR . $partition)) {
+            unlink($this->dir . DIRECTORY_SEPARATOR . $partition);
         }
     }
     /**
@@ -48,9 +48,18 @@ class PHP implements CacheInterface
         }
         $partition = md5($partition) . '.php';
         $data = [];
-        @include $this->dir.DIRECTORY_SEPARATOR.$partition;
+        @include $this->dir . DIRECTORY_SEPARATOR . $partition;
         $data['_' . md5($key)] = '--\vakata\cache\PHP::wait--';
-        file_put_contents($this->dir.DIRECTORY_SEPARATOR.$partition, '<?php'."\n".'$data='.var_export($data, true).';');
+        $temp = $this->dir . DIRECTORY_SEPARATOR . $partition . '.' . uniqid('', true);
+        file_put_contents(
+            $temp,
+            '<?php'."\n".'$data='.var_export($data, true).';',
+            LOCK_EX
+        );
+        rename($temp, $this->dir . DIRECTORY_SEPARATOR . $partition);
+        if (function_exists('opcache_compile_file')) {
+            @opcache_compile_file($this->dir . DIRECTORY_SEPARATOR . $partition);
+        }
     }
     /**
      * Stora a value in a key.
@@ -73,12 +82,21 @@ class PHP implements CacheInterface
             $expires = 14400;
         }
         $data = [];
-        @include $this->dir.DIRECTORY_SEPARATOR.$partition;
+        @include $this->dir . DIRECTORY_SEPARATOR . $partition;
         $data['_' . md5($key)] = [
             'expires' => time() + $expires,
             'value' => $value
         ];
-        file_put_contents($this->dir.DIRECTORY_SEPARATOR.$partition, '<?php'."\n".'$data='.var_export($data, true).';');
+        $temp = $this->dir . DIRECTORY_SEPARATOR . $partition . '.' . uniqid('', true);
+        file_put_contents(
+            $temp,
+            '<?php'."\n".'$data='.var_export($data, true).';',
+            LOCK_EX
+        );
+        rename($temp, $this->dir . DIRECTORY_SEPARATOR . $partition);
+        if (function_exists('opcache_compile_file')) {
+            @opcache_compile_file($this->dir . DIRECTORY_SEPARATOR . $partition);
+        }
         return $value;
     }
     /**
@@ -98,7 +116,7 @@ class PHP implements CacheInterface
         $cntr = 0;
         while (true) {
             $data = [];
-            @include $this->dir.DIRECTORY_SEPARATOR.$partition;
+            @include $this->dir . DIRECTORY_SEPARATOR . $partition;
             if (!isset($data['_' . md5($key)])) {
                 return $default;
             }
@@ -110,7 +128,16 @@ class PHP implements CacheInterface
             }
             if (++$cntr > 10) {
                 unset($data['_' . md5($key)]);
-                file_put_contents($this->dir.DIRECTORY_SEPARATOR.$partition, '<?php'."\n".'$data='.var_export($data, true).';');
+                $temp = $this->dir . DIRECTORY_SEPARATOR . $partition . '.' . uniqid('', true);
+                file_put_contents(
+                    $temp,
+                    '<?php'."\n".'$data='.var_export($data, true).';',
+                    LOCK_EX
+                );
+                rename($temp, $this->dir . DIRECTORY_SEPARATOR . $partition);
+                if (function_exists('opcache_compile_file')) {
+                    @opcache_compile_file($this->dir . DIRECTORY_SEPARATOR . $partition);
+                }
                 return $default;
             }
             usleep(500000);
@@ -128,8 +155,18 @@ class PHP implements CacheInterface
         }
         $partition = md5($partition) . '.php';
         $data = [];
-        @include $this->dir.DIRECTORY_SEPARATOR.$partition;
-        file_put_contents($this->dir.DIRECTORY_SEPARATOR.$partition, '<?php'."\n".'$data='.var_export($data, true).';');
+        @include $this->dir . DIRECTORY_SEPARATOR . $partition;
+        unset($data['_' . md5($key)]);
+        $temp = $this->dir . DIRECTORY_SEPARATOR . $partition . '.' . uniqid('', true);
+        file_put_contents(
+            $temp,
+            '<?php'."\n".'$data='.var_export($data, true).';',
+            LOCK_EX
+        );
+        rename($temp, $this->dir . DIRECTORY_SEPARATOR . $partition);
+        if (function_exists('opcache_compile_file')) {
+            @opcache_compile_file($this->dir . DIRECTORY_SEPARATOR . $partition);
+        }
     }
     /**
      * Get a cached value if it exists, if not - invoke a callback, store the result in cache and return it.
