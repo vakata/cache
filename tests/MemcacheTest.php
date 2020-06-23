@@ -1,22 +1,18 @@
 <?php
 namespace vakata\cache\test;
 
-class MemcacheTest extends \PHPUnit_Framework_TestCase
+class MemcacheTest extends \PHPUnit\Framework\TestCase
 {
 	protected static $cache = null;
 
-	public static function setUpBeforeClass() {
+	public static function setUpBeforeClass(): void {
 		self::$cache = new \vakata\cache\Memcache();
 		self::$cache->clear();
 		self::$cache->clear('test');
 	}
-	public static function tearDownAfterClass() {
+	public static function tearDownAfterClass(): void {
 		self::$cache->clear();
 		self::$cache->clear('test');
-	}
-	protected function setUp() {
-	}
-	protected function tearDown() {
 	}
 
 	public function testSet() {

@@ -5,6 +5,14 @@
         "vakata",
         "cache"
     ],
+    "config" : {
+        "platform" : {
+            "php" : "7.2"
+        },
+        "optimize-autoloader" : true,
+        "sort-packages" : true,
+        "bin-compat": "full"
+    },
     "homepage": "https://github.com/vakata/cache",
     "license": "MIT",
     "authors": [
@@ -16,13 +24,10 @@
         }
     ],
     "require": {
-        "php" : ">=5.4.0",
         "psr/simple-cache" : "~1.0"
     },
     "require-dev": {
-        "phpunit/phpunit" : "5.*",
-        "codeclimate/php-test-reporter": "dev-master",
-        "clean/phpdoc-md": "dev-master"
+        "phpunit/phpunit" : "8.*"
     },
     "autoload": {
         "psr-4": {
@@ -35,7 +40,7 @@
         }
     },
     "scripts": {
-        "test": "phpunit",
+        "test": "phpunit --bootstrap vendor/autoload.php --cache-result-file=tests/phpunit.result.cache tests",
         "psr2": "php-cs-fixer fix ./src",
         "phpdoc": "phpdoc-md"
     }

@@ -93,7 +93,7 @@ class Filecache implements CacheInterface
             $expires = 14400;
         }
 
-        if (!(bool) @file_put_contents($key, base64_encode(serialize(array('created' => time(), 'expires' => time() + (int) $expires, 'data' => $value))))) {
+        if (!(bool) @file_put_contents($key, serialize(array('created' => time(), 'expires' => time() + (int) $expires, 'data' => $value)))) {
             throw new CacheException('Could not set cache key');
         }
 
@@ -131,7 +131,7 @@ class Filecache implements CacheInterface
             break;
         }
 
-        $value = unserialize(base64_decode($value));
+        $value = unserialize($value);
         if ($metaOnly) {
             unset($value['data']);
             return $value;

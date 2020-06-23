@@ -116,10 +116,10 @@ class Memcache implements CacheInterface
 
         $key = $this->addNamespace($key, $partition);
 
-        $value = str_split(base64_encode(serialize($value)), 1 * 1024 * 1024);
+        $value = str_split(serialize($value), 1 * 1024 * 1024);
 
         $res = true;
-        $res = $res && $this->memcache->set($key.'_meta', base64_encode(serialize(array('created' => time(), 'expires' => time() + $expires, 'chunks' => count($value)))), MEMCACHE_COMPRESSED, $expires);
+        $res = $res && $this->memcache->set($key.'_meta', serialize(array('created' => time(), 'expires' => time() + $expires, 'chunks' => count($value))), MEMCACHE_COMPRESSED, $expires);
         foreach ($value as $k => $v) {
             $res = $res && $this->memcache->set($key.'_'.$k, $v, MEMCACHE_COMPRESSED, $expires);
         }
@@ -165,7 +165,7 @@ class Memcache implements CacheInterface
             break;
         }
 
-        $temp = unserialize(base64_decode($meta));
+        $temp = unserialize($meta);
         if ($metaOnly) {
             return $temp;
         }
@@ -177,7 +177,7 @@ class Memcache implements CacheInterface
             }
             $value .= $tmp;
         }
-        $value = unserialize(base64_decode($value));
+        $value = unserialize($value);
 
         return $value;
     }

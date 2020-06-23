@@ -8,7 +8,7 @@ class Memcached implements CacheInterface
     protected $namespace = 'default';
     /**
      * Create an instance
-     * @param  string      $address          the redis IP and port (127.0.0.1:6379)
+     * @param  string      $address          the memcached IP and port (127.0.0.1:11211)
      * @param  string      $defaultNamespace the default namespace to store in (namespaces are collections that can be easily cleared in bulk)
      */
     public function __construct($address = '127.0.0.1:11211', $defaultNamespace = 'default')
@@ -144,9 +144,9 @@ class Memcached implements CacheInterface
 
         $orig_value = $value;
         $key = $this->addNamespace($key, $partition);
-        $value = str_split(base64_encode(serialize($orig_value)), 1000 * 1000);
+        $value = str_split(serialize($orig_value), 1000 * 1000);
 
-        $this->_set($key.'_meta', base64_encode(serialize(array('created' => time(), 'expires' => time() + $expires, 'chunks' => count($value)))), $expires);
+        $this->_set($key.'_meta', serialize(array('created' => time(), 'expires' => time() + $expires, 'chunks' => count($value))), $expires);
         foreach ($value as $k => $v) {
             $this->_set($key.'_'.$k, $v, $expires);
         }
@@ -184,7 +184,7 @@ class Memcached implements CacheInterface
             break;
         }
 
-        $meta = unserialize(base64_decode($meta));
+        $meta = unserialize($meta);
         if ($metaOnly) {
             return $meta;
         }
@@ -196,7 +196,7 @@ class Memcached implements CacheInterface
             }
             $value .= $tmp;
         }
-        $value = unserialize(base64_decode($value));
+        $value = unserialize($value);
 
         return $value;
     }

@@ -2,27 +2,30 @@
 
 namespace vakata\cache\test;
 
-class PSR16Test extends \PHPUnit_Framework_TestCase
+class PSR16Test extends \PHPUnit\Framework\TestCase
 {
 	protected static $dir = null;
 	protected static $cache = null;
 
-	public static function setUpBeforeClass() {
+	public static function setUpBeforeClass(): void {
 		self::$dir = __DIR__ . '/cache';
-		mkdir(self::$dir);
+		if (!is_dir(self::$dir)) {
+			mkdir(self::$dir);
+		}
 		self::$cache = new \vakata\cache\Filecache(self::$dir);
 		self::$cache->clear();
         self::$cache->clear('psr16');
         self::$cache = new \vakata\cache\PSR16Adapter(self::$cache, 'psr16');
 	}
-	public static function tearDownAfterClass() {
+	public static function tearDownAfterClass(): void {
 		self::$cache->clear();
-		rmdir(self::$dir.'/psr16');
-		rmdir(self::$dir);
-	}
-	protected function setUp() {
-	}
-	protected function tearDown() {
+		self::$cache->clear('psr16');
+		if (is_dir(self::$dir.'/psr16')) {
+			rmdir(self::$dir.'/psr16');
+		}
+		if (is_dir(self::$dir)) {
+			rmdir(self::$dir);
+		}
 	}
 
 	public function testSet() {

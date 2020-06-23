@@ -163,7 +163,7 @@ class Redis implements CacheInterface
             $expires = 14400;
         }
         $key = $this->addNamespace($key, $partition);
-        $this->_set($key, base64_encode(serialize(array('created' => time(), 'expires' => time() + $expires, 'data' => $value))), $expires);
+        $this->_set($key, serialize(array('created' => time(), 'expires' => time() + $expires, 'data' => $value)), $expires);
         return $value;
     }
     /**
@@ -198,7 +198,7 @@ class Redis implements CacheInterface
             return $default;
         }
 
-        $value = unserialize(base64_decode($value));
+        $value = unserialize($value);
         if ($metaOnly) {
             unset($value['data']);
             return $value;

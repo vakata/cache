@@ -2,28 +2,34 @@
 
 namespace vakata\cache\test;
 
-class FilecacheTest extends \PHPUnit_Framework_TestCase
+class FilecacheTest extends \PHPUnit\Framework\TestCase
 {
 	protected static $dir = null;
 	protected static $cache = null;
 
-	public static function setUpBeforeClass() {
+	public static function setUpBeforeClass(): void {
 		self::$dir = __DIR__ . '/cache';
-		mkdir(self::$dir);
+		if (!is_dir(self::$dir)) {
+			mkdir(self::$dir);
+		}
 		self::$cache = new \vakata\cache\Filecache(self::$dir);
 		self::$cache->clear();
 		self::$cache->clear('test');
+		self::$cache->clear('cache');
 	}
-	public static function tearDownAfterClass() {
+	public static function tearDownAfterClass(): void {
 		self::$cache->clear();
 		self::$cache->clear('test');
-		rmdir(self::$dir.'/default');
-		rmdir(self::$dir.'/cache');
-		rmdir(self::$dir);
-	}
-	protected function setUp() {
-	}
-	protected function tearDown() {
+		self::$cache->clear('cache');
+		if (is_dir(self::$dir.'/default')) {
+			rmdir(self::$dir.'/default');
+		}
+		if (is_dir(self::$dir.'/cache')) {
+			rmdir(self::$dir.'/cache');
+		}
+		if (is_dir(self::$dir)) {
+			rmdir(self::$dir);
+		}
 	}
 
 	public function testSet() {
