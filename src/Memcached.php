@@ -15,7 +15,7 @@ class Memcached implements CacheInterface
     {
         $address = parse_url('//' . ltrim($address, '/'));
         if (!$address) { $address = []; }
-        $address = array_merge($address, [ 'host' => '127.0.0.1', 'port' => '11211']);
+        $address = array_merge([ 'host' => '127.0.0.1', 'port' => '11211'], $address);
         $this->socket = fsockopen($address['host'], $address['port'], $num, $str, 3);
         if (!$this->socket) {
             throw new CacheException('Could not connect');
