@@ -23,7 +23,7 @@ class PHP implements CacheInterface
 
     /**
      * Clears a namespace.
-     * @param  string $partition the namespace to clear (if not specified the default namespace is cleared)
+     * @param  string|null $partition the namespace to clear (if not specified the default namespace is cleared)
      */
     public function clear($partition = null)
     {
