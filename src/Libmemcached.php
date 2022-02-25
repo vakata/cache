@@ -34,15 +34,15 @@ class Libmemcached extends CacheAbstract implements CacheInterface
     }
     protected function _del($key)
     {
-        $this->memcached->delete($key);
+        return $this->memcached->delete($key);
     }
     protected function _set($key, $val, $exp = 0)
     {
-        return $this->memcached->set($key, $val, 0, $exp);
+        return $this->memcached->set($key, $val, $exp);
     }
     protected function _inc($key)
     {
-        $this->memcached->increment($key, 1, 1);
+        $this->memcached->increment($key, 1);
     }
 
     protected function connect()

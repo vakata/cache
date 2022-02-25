@@ -1,12 +1,12 @@
 <?php
 namespace vakata\cache\test;
 
-class MemcacheTest extends \PHPUnit\Framework\TestCase
+class LibmemcachedTest extends \PHPUnit\Framework\TestCase
 {
 	protected static $cache = null;
 
 	public static function setUpBeforeClass(): void {
-		self::$cache = new \vakata\cache\Memcache();
+		self::$cache = new \vakata\cache\Libmemcached();
 		self::$cache->clear();
 		self::$cache->clear('test');
 	}
@@ -16,7 +16,7 @@ class MemcacheTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testSet() {
-		self::$cache = new \vakata\cache\Memcache();
+		self::$cache = new \vakata\cache\Libmemcached();
 
 		$this->assertEquals('v1', self::$cache->set('key', 'v1'));
 		$this->assertEquals('v2', self::$cache->set('key', 'v2', 'cache'));
