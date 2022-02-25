@@ -223,8 +223,8 @@ class Memcached implements CacheInterface
      */
     public function getSet($key, callable $value, $partition = null, $time = 14400)
     {
-        $temp = $this->get($key, null, $partition);
-        if ($temp !== null) {
+        $temp = $this->get($key, chr(0), $partition);
+        if ($temp !== chr(0)) {
             return $temp;
         }
         $this->prepare($key, $partition);
