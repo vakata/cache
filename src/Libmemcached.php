@@ -2,7 +2,7 @@
 
 namespace vakata\cache;
 
-class Memcache2 extends CacheAbstract implements CacheInterface
+class Libmemcached extends CacheAbstract implements CacheInterface
 {
     use CacheGetSetTrait;
     
