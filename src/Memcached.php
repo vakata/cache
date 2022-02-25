@@ -2,8 +2,10 @@
 
 namespace vakata\cache;
 
-class Memcached implements CacheInterface
+class Memcached extends CacheAbstract implements CacheInterface
 {
+    use CacheGetSetTrait;
+
     protected $socket = null;
     protected $namespace = 'default';
     /**
@@ -13,6 +15,7 @@ class Memcached implements CacheInterface
      */
     public function __construct($address = '127.0.0.1:11211', $defaultNamespace = 'default')
     {
+        parent::__construct($defaultNamespace);
         $address = parse_url('//' . ltrim($address, '/'));
         if (!$address) { $address = []; }
         $address = array_merge([ 'host' => '127.0.0.1', 'port' => '11211'], $address);
@@ -54,7 +57,7 @@ class Memcached implements CacheInterface
             throw new CacheException('Cache not connected');
         }
         $length = strlen((string)$val);
-        fwrite($this->socket, "set " . $key . " 0 " . ($exp !== null ? time() + $exp : 0) . " " . ((string)$length) . "\r\n");
+        fwrite($this->socket, "set " . $key . " 0 " . ($exp !== null ? $exp : 0) . " " . ((string)$length) . "\r\n");
         $written = 0;
         while ($written < $length) {
             $written += fwrite($this->socket, substr($val, $written));
@@ -89,14 +92,7 @@ class Memcached implements CacheInterface
         if (!$partition) {
             $partition = $this->namespace;
         }
-
-        $tmp = $this->_get($partition);
-        if ((int)$tmp === 0) {
-            $tmp = rand(1, 10000);
-            $this->_set($partition, $tmp);
-        }
-
-        return $partition.'_'.$tmp.'_'.$key;
+        return $partition.'_'.$this->getNamespace($partition).'_'.$key;
     }
     /**
      * Clears a namespace.
@@ -130,23 +126,26 @@ class Memcached implements CacheInterface
      * @param  integer|string $expires   time in seconds (or strtotime parseable expression) to store the value for (14400 by default)
      * @return mixed the value that was stored
      */
-    public function set($key, $value, $partition = null, $expires = null)
+    public function set($key, $value, $partition = null, $expires = 14400)
     {
         if (!$partition) {
             $partition = $this->namespace;
         }
         if (is_string($expires)) {
-            $expires = (int) strtotime($expires) - time();
+            $expires = (int) strtotime($expires);
         }
-        if ($expires !== null && (int)$expires < 0) {
+        if ((int)$expires <= 0) {
             $expires = 14400;
+        }
+        if ($expires < time() / 2) {
+            $expires += time();
         }
 
         $orig_value = $value;
         $key = $this->addNamespace($key, $partition);
-        $value = str_split(serialize($orig_value), 1000 * 1000);
+        $value = str_split(serialize($orig_value), 1 * 1000 * 1000);
 
-        $this->_set($key.'_meta', serialize(array('created' => time(), 'expires' => time() + $expires, 'chunks' => count($value))), $expires);
+        $this->_set($key.'_meta', serialize(array('created' => time(), 'expires' => $expires, 'chunks' => count($value))), $expires);
         foreach ($value as $k => $v) {
             $this->_set($key.'_'.$k, $v, $expires);
         }
@@ -212,30 +211,5 @@ class Memcached implements CacheInterface
         }
         $key = $this->addNamespace($key, $partition);
         $this->_del($key . '_meta');
-    }
-    /**
-     * Get a cached value if it exists, if not - invoke a callback, store the result in cache and return it.
-     * @param  string         $key       the key to look for / store in
-     * @param  callable       $value     a function to invoke if the value is not present
-     * @param  string|null         $partition the namespace to use (if not supplied the default will be used)
-     * @param  integer|string $expires   time in seconds (or strtotime parseable expression) to store the value for (14400 by default)
-     * @return mixed                     the cached value
-     */
-    public function getSet($key, callable $value, $partition = null, $time = 14400)
-    {
-        $temp = $this->get($key, chr(0), $partition);
-        if ($temp !== chr(0)) {
-            return $temp;
-        }
-        $this->prepare($key, $partition);
-        try {
-            $value = call_user_func($value);
-            return $this->set($key, $value, $partition, $time);
-        } catch (CacheException $e) {
-            return $value;
-        } catch (\Exception $e) {
-            $this->delete($key, $partition);
-            throw $e;
-        }
     }
 }

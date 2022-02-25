@@ -2,12 +2,12 @@
 
 namespace vakata\cache;
 
-class Memcache extends CacheAbstract implements CacheInterface
+class Memcache2 extends CacheAbstract implements CacheInterface
 {
     use CacheGetSetTrait;
-
+    
     protected $connected = false;
-    protected $memcache = null;
+    protected $memcached = null;
     protected $pool = array();
 
     /**
@@ -30,32 +30,33 @@ class Memcache extends CacheAbstract implements CacheInterface
 
     protected function _get($key)
     {
-        return $this->memcache->get($key);
-    }
-    protected function _set($key, $val, $exp = 0)
-    {
-        return $this->memcache->set($key, $val, 0, $exp);
+        return $this->memcached->get($key);
     }
     protected function _del($key)
     {
-        return $this->memcache->delete($key);
+        $this->memcached->delete($key);
+    }
+    protected function _set($key, $val, $exp = 0)
+    {
+        return $this->memcached->set($key, $val, 0, $exp);
     }
     protected function _inc($key)
     {
-        $this->memcache->increment($key);
+        $this->memcached->increment($key, 1, 1);
     }
 
     protected function connect()
     {
         $this->connected = false;
-        $this->memcache = new \Memcache();
-        foreach ($this->pool as $host) {
-            $host = array_merge($host, array('port' => 11211, 'weight' => 1));
-            $this->memcache->addServer($host['host'], $host['port'], true, $host['weight']);
-            $stats = @$this->memcache->getExtendedStats();
-            if ($this->connected || ($stats["{$host['host']}:{$host['port']}"] !== false && sizeof($stats["{$host['host']}:{$host['port']}"]) > 0)) {
-                $this->connected = true;
+        $this->memcached = new \Memcached(sha1(serialize($this->pool)));
+        if (!count($this->memcached->getServerList())) {
+            foreach ($this->pool as $host) {
+                $host = array_merge($host, array('port' => 11211, 'weight' => 1));
+                $this->memcached->addServer($host['host'], $host['port'], $host['weight']);
             }
+        }
+        if (!$this->connected && count($this->memcached->getStats())) {
+            $this->connected = true;
         }
 
         return $this->connected;
@@ -84,7 +85,7 @@ class Memcache extends CacheAbstract implements CacheInterface
         if (is_array($this->namespaces) && isset($this->namespaces[$partition])) {
             unset($this->namespaces[$partition]);
         }
-        $this->_inc($partition);
+        $this->_inc($partition, 1, 1);
     }
     /**
      * Prepare a key for insertion (reserve if you will).
@@ -212,5 +213,6 @@ class Memcache extends CacheAbstract implements CacheInterface
         if (!$this->_del($key.'_meta')) {
             throw new CacheException('Could not delete cache key');
         }
+        return true;
     }
 }
