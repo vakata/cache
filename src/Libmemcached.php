@@ -19,10 +19,18 @@ class Libmemcached extends CacheAbstract implements CacheInterface
     {
         parent::__construct($defaultNamespace);
         if (is_string($pool)) {
-            $pool = array('host' => $pool);
+            $pool = [ $pool ];
         }
-        if (isset($pool['host'])) {
-            $pool = array($pool);
+        foreach ($pool as $k => $v) {
+            if (is_string($v)) {
+                $v = parse_url('//' . ltrim($v, '/'));
+                if (!$v) { $v = []; }
+                $v = array_merge([ 'host' => '127.0.0.1', 'port' => 11211], $v);
+                $pool[$k] = $v;
+            }
+            if (!isset($pool[$k]['weight'])) {
+                $pool[$k]['weight'] = 1;
+            }
         }
         $this->pool = $pool;
         $this->connect();
@@ -48,12 +56,12 @@ class Libmemcached extends CacheAbstract implements CacheInterface
     protected function connect()
     {
         $this->connected = false;
-        $this->memcached = new \Memcached(sha1(serialize($this->pool)));
+        $this->memcached = new \Memcached(sha1(json_encode($this->pool)));
         if (!count($this->memcached->getServerList())) {
             foreach ($this->pool as $host) {
-                $host = array_merge($host, array('port' => 11211, 'weight' => 1));
                 $this->memcached->addServer($host['host'], $host['port'], $host['weight']);
             }
+            $this->memcached->setOption(\Memcached::OPT_LIBKETAMA_COMPATIBLE, true);
         }
         if (!$this->connected && count($this->memcached->getStats())) {
             $this->connected = true;
