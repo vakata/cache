@@ -63,7 +63,7 @@ class Libmemcached extends CacheAbstract implements CacheInterface
             }
             $this->memcached->setOption(\Memcached::OPT_LIBKETAMA_COMPATIBLE, true);
         }
-        if (!$this->connected && count($this->memcached->getStats())) {
+        if (!$this->connected && count($this->memcached->getStats()?:[])) {
             $this->connected = true;
         }
 
