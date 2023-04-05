@@ -223,6 +223,9 @@ class SHM extends CacheAbstract implements CacheInterface
         if ($value === false) {
             return $default;
         }
+        if (isset($value['expires']) && $value['expires'] < time()) {
+            return $default;
+        }
         if ($metaOnly) {
             unset($value['data']);
             return $value;
