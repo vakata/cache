@@ -71,4 +71,10 @@ class Dummy implements CacheInterface
     {
         return call_user_func($value);
     }
+    public function enableNamespaceCache()
+    {
+    }
+    public function disableNamespaceCache()
+    {
+    }
 }

@@ -163,4 +163,10 @@ class Filecache implements CacheInterface
             throw new CacheException('Could not delete cache key');
         }
     }
+    public function enableNamespaceCache()
+    {
+    }
+    public function disableNamespaceCache()
+    {
+    }
 }

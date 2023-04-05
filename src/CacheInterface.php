@@ -10,4 +10,6 @@ interface CacheInterface
     public function get($key, $default = null, $partition = null, $metaOnly = false);
     public function delete($key, $partition = null);
     public function getSet($key, callable $value, $partition = null, $time = 14400);
+    public function enableNamespaceCache();
+    public function disableNamespaceCache();
 }
