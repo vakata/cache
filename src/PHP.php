@@ -170,4 +170,10 @@ class PHP implements CacheInterface
             @opcache_compile_file($this->dir . DIRECTORY_SEPARATOR . $partition);
         }
     }
+    public function enableNamespaceCache()
+    {
+    }
+    public function disableNamespaceCache()
+    {
+    }
 }

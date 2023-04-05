@@ -2,35 +2,48 @@
 
 namespace vakata\cache;
 
-class APCu extends CacheAbstract implements CacheInterface
+class Libredis extends CacheAbstract implements CacheInterface
 {
     use CacheGetSetTrait;
 
+    protected $server = null;
     protected $namespace = 'default';
+    /**
+     * Create an instance
+     * @param  string      $address          the redis IP and port (127.0.0.1:6379)
+     * @param  string      $defaultNamespace the default namespace to store in (namespaces are collections that can be easily cleared in bulk)
+     */
+    public function __construct($address = '127.0.0.1:6379', $defaultNamespace = 'default')
+    {
+        $address = parse_url('//' . ltrim($address, '/'));
+        if (!$address) { $address = []; }
+        $address = array_merge($address, [ 'host' => '127.0.0.1', 'port' => '6379']);
+        $this->server = new \Redis();
+        if (!$this->server->pconnect($address['host'], $address['port'])) {
+            throw new CacheException('Could not connect to Redis');
+        }
+    }
 
     protected function _get($key)
     {
-        $res = false;
-        $val = \apcu_fetch($key, $res);
-        if (!$res) {
-            return null;
-        }
-        return $val;
+        return $this->server->get($key);
     }
-    protected function _set($key, $val, $ttl = 0)
+    protected function _set($key, $val, $exp = null)
     {
-        if ($ttl > time()) {
-            $ttl -= time();
+        if ($exp > time()) {
+            $exp -= time();
         }
-        return \apcu_store($key, $val, $ttl);
-    }
-    protected function _inc($key)
-    {
-        return \apcu_inc($key);
+        return $exp === null ?
+            $this->server->set($key, $val) :
+            $this->server->set($key, $val, [ 'ex' => $exp ]);
     }
     protected function _del($key)
     {
-        return \apcu_delete($key);
+        return $this->server->del($key);
+    }
+    protected function _inc($key)
+    {
+        return $this->server->incr($key);
     }
 
     protected function addNamespace($key, $partition = null)
@@ -124,6 +137,9 @@ class APCu extends CacheAbstract implements CacheInterface
         }
 
         $value = unserialize($value);
+        if ($value === false) {
+            return $default;
+        }
         if ($value === false) {
             return $default;
         }

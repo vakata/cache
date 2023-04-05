@@ -180,6 +180,9 @@ class Memcache extends CacheAbstract implements CacheInterface
         }
 
         $temp = unserialize($meta);
+        if ($temp === false) {
+            return $default;
+        }
         if ($metaOnly) {
             return $temp;
         }
@@ -192,7 +195,9 @@ class Memcache extends CacheAbstract implements CacheInterface
             $value .= $tmp;
         }
         $value = unserialize($value);
-
+        if ($value === false) {
+            return $default;
+        }
         return $value;
     }
     /**

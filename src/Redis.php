@@ -201,6 +201,9 @@ class Redis extends CacheAbstract implements CacheInterface
         }
 
         $value = unserialize($value);
+        if ($value === false) {
+            return $default;
+        }
         if ($metaOnly) {
             unset($value['data']);
             return $value;

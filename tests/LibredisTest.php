@@ -1,12 +1,12 @@
 <?php
 namespace vakata\cache\test;
 
-class MemcacheTest extends \PHPUnit\Framework\TestCase
+class LibredisTest extends \PHPUnit\Framework\TestCase
 {
 	protected static $cache = null;
 
 	public static function setUpBeforeClass(): void {
-		self::$cache = new \vakata\cache\Memcache();
+		self::$cache = new \vakata\cache\Libredis();
 		self::$cache->clear();
 		self::$cache->clear('test');
 	}
@@ -16,7 +16,7 @@ class MemcacheTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testSet() {
-		self::$cache = new \vakata\cache\Memcache();
+		self::$cache = new \vakata\cache\Libredis();
 
 		$this->assertEquals('v1', self::$cache->set('key', 'v1'));
 		$this->assertEquals('v2', self::$cache->set('key', 'v2', 'cache'));
@@ -34,7 +34,7 @@ class MemcacheTest extends \PHPUnit\Framework\TestCase
 	 * @depends testSet
 	 */
 	public function testExpire() {
-		sleep(3);
+		sleep(2);
 		$this->assertEquals(null, self::$cache->get('expire', null, 'cache'));
 	}
 	/**
