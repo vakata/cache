@@ -10,17 +10,15 @@ class SHM extends CacheAbstract implements CacheInterface
     protected \SysvSharedMemory $memory;
     protected array $data;
     protected bool $acquired = false;
+    protected int $size;
 
-    public function __construct(int $id = 1, ?int $size = 3000000)
+    public function __construct(int $size = 3000000, int $id = 1)
     {
+        $this->size = $size;
         $this->semaphore = sem_get($id);
         $this->memory = shm_attach($id, $size);
         $this->readMaster();
-        if (rand(0,100) === 100 || $this->data['size'] / $size > 0.7) {
-            $this->clean();
-        }
     }
-
     public function __destruct()
     {
         if ($this->memory) {
@@ -51,16 +49,33 @@ class SHM extends CacheAbstract implements CacheInterface
         }
         $this->acquired = false;
     }
+    protected function getSize()
+    {
+        return $this->data['size'] + strlen(json_encode($this->data)) + 0.3 * $this->size;
+    }
+
+    public function reset()
+    {
+        $a = $this->acquire();
+        for ($id = 0; $id < 9999; $id++) {
+            if (shm_has_var($this->memory, $id)) {
+                shm_remove_var($this->memory, $id);
+            }
+        }
+        if ($a) {
+            $this->release();
+        }
+        $this->readMaster();
+    }
 
     protected function readMaster()
     {
         if ($this->acquire()) {
             $this->release();
         }
-        try {
+        $data = '';
+        if (shm_has_var($this->memory, 1)) {
             $data = shm_get_var($this->memory, 1);
-        } catch (\Throwable $e) {
-            $data = '';
         }
         $this->data = json_decode($data, true) ?? [];
         if (!isset($this->data['keys'])) {
@@ -69,34 +84,74 @@ class SHM extends CacheAbstract implements CacheInterface
         if (!isset($this->data['size'])) {
             $this->data['size'] = 0;
         }
+        if (!isset($this->data['namespaces'])) {
+            $this->data['namespaces'] = [];
+        }
         if (!isset($this->data['max'])) {
             $this->data['max'] = 1;
         }
     }
     protected function writeMaster()
     {
-        $this->acquire();
+        $a = $this->acquire();
         shm_put_var($this->memory, 1, json_encode($this->data));
-        $this->release();
+        if ($a) {
+            $this->release();
+        }
     }
 
     protected function clean()
     {
-        // expired items
-        // if size is about to overflow - clean until below threshold
+        $a = $this->acquire();
+        foreach ($this->data['keys'] as $key => $id) {
+            if (!shm_has_var($this->memory, $id)) {
+                unset($this->data['keys'][$key]);
+            }
+        }
+        $items = [];
+        foreach ($this->data['keys'] as $key => $id) {
+            $temp = shm_get_var($this->memory, $id);
+            $data = unserialize($temp);
+            if (!$data || !isset($data['expires']) || $data['expires'] < time()) {
+                shm_remove_var($this->memory, $id);
+                unset($this->data['keys'][$key]);
+                $this->data['size'] -= strlen($temp);
+            } else {
+                $items[$key] = $data['expires'];
+            }
+        }
+        asort($items, SORT_NUMERIC);
+        $items = array_keys(array_reverse($items));
+        foreach ($items as $key) {
+            if ($this->getSize() < $this->size / 2) {
+                break;
+            }
+            $temp = shm_get_var($this->memory, $this->data['keys'][$key]);
+            shm_remove_var($this->memory, $this->data['keys'][$key]);
+            unset($this->data['keys'][$key]);
+            $this->data['size'] -= strlen($temp);
+        }
         $this->writeMaster();
+        if ($a) {
+            $this->release();
+        }
     }
 
-    protected function keyID(string $key): int
+    protected function keyID(string $key, bool $create = false): int
     {
         if (!isset($this->data['keys'][$key])) {
             $this->readMaster();
         }
         if (!isset($this->data['keys'][$key])) {
-            $this->acquire();
+            if (!$create) {
+                return 0;
+            }
+            $a = $this->acquire();
             $this->data['keys'][$key] = ++$this->data['max'];
             $this->writeMaster();
-            $this->release();
+            if ($a) {
+                $this->release();
+            }
         }
         return $this->data['keys'][$key];
     }
@@ -104,29 +159,53 @@ class SHM extends CacheAbstract implements CacheInterface
     protected function _get($key)
     {
         $key = $this->keyID($key);
+        if (!$key) {
+            return null;
+        }
         if ($this->acquire()) {
             $this->release();
         }
-        try {
-            $data = shm_get_var($this->memory, $key);
-        } catch (\Throwable $e) {
+        if (!shm_has_var($this->memory, $key)) {
             return null;
         }
-        return $data;
+        return shm_get_var($this->memory, $key);
     }
     protected function _set($key, $val, $exp = null)
     {
-        $key = $this->keyID($key);
-        $this->acquire();
+        if ($this->getSize() + strlen($val) > $this->size) {
+            $this->clean();
+        }
+        $a = $this->acquire();
+        $key = $this->keyID($key, true);
+        $data = '';
+        if (shm_has_var($this->memory, $key)) {
+            $data = shm_get_var($this->memory, $key);
+        }
         shm_put_var($this->memory, $key, $val);
-        $this->release();
+        $this->data['size'] += strlen($val) - strlen($data);
+        $this->writeMaster();
+        if ($a) {
+            $this->release();
+        }
     }
     protected function _del($key)
     {
-        $key = $this->keyID($key);
-        $this->acquire();
-        shm_remove_var($this->memory, $key);
-        $this->release();
+        $id = $this->keyID($key);
+        if (!$id) {
+            return;
+        }
+        $a = $this->acquire();
+        $data = '';
+        if (shm_has_var($this->memory, $id)) {
+            $data = shm_get_var($this->memory, $id);
+            shm_remove_var($this->memory, $id);
+            $this->data['size'] -= strlen($data);
+        }
+        unset($this->data['keys'][$key]);
+        $this->writeMaster();
+        if ($a) {
+            $this->release();
+        }
     }
 
     protected function addNamespace($key, $partition = null)
@@ -146,7 +225,12 @@ class SHM extends CacheAbstract implements CacheInterface
         if (!$partition) {
             $partition = $this->namespace;
         }
-        $this->_inc($partition);
+        $a = $this->acquire();
+        $this->data['namespaces'][$partition] += 1;
+        $this->writeMaster();
+        if ($a) {
+            $this->release();
+        }
     }
     /**
      * Prepare a key for insertion (reserve if you will).
@@ -244,5 +328,21 @@ class SHM extends CacheAbstract implements CacheInterface
         }
         $key = $this->addNamespace($key, $partition);
         $this->_del($key);
+    }
+
+    protected function getNamespace($partition)
+    {
+        if (isset($this->namespaces) && isset($this->namespaces[$partition]) && $this->namespaces[$partition]) {
+            return $this->namespaces[$partition];
+        }
+        if (!isset($this->data['namespaces'][$partition])) {
+            $this->data['namespaces'][$partition] = rand(1,1000);
+            $this->writeMaster();
+        }
+        $tmp = $this->data['namespaces'][$partition];
+        if (is_array($this->namespaces)) {
+            $this->namespaces[$partition] = $tmp;
+        }
+        return $tmp;
     }
 }
