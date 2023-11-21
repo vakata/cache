@@ -17,7 +17,7 @@ class Libredis extends CacheAbstract implements CacheInterface
     {
         $address = parse_url('//' . ltrim($address, '/'));
         if (!$address) { $address = []; }
-        $address = array_merge($address, [ 'host' => '127.0.0.1', 'port' => '6379']);
+        $address = array_merge([ 'host' => '127.0.0.1', 'port' => '6379'], $address);
         $this->server = new \Redis();
         if (!$this->server->pconnect($address['host'], $address['port'])) {
             throw new CacheException('Could not connect to Redis');
