@@ -111,7 +111,7 @@ class SHM extends CacheAbstract implements CacheInterface
         $items = [];
         foreach ($this->data['keys'] as $key => $id) {
             $temp = shm_get_var($this->memory, $id);
-            $data = unserialize($temp);
+            $data = @unserialize($temp);
             if (!$data || !isset($data['expires']) || $data['expires'] < time()) {
                 shm_remove_var($this->memory, $id);
                 unset($this->data['keys'][$key]);
@@ -303,7 +303,7 @@ class SHM extends CacheAbstract implements CacheInterface
             return $default;
         }
 
-        $value = unserialize($value);
+        $value = @unserialize($value);
         if ($value === false) {
             return $default;
         }

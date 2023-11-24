@@ -200,7 +200,7 @@ class Redis extends CacheAbstract implements CacheInterface
             return $default;
         }
 
-        $value = unserialize($value);
+        $value = @unserialize($value);
         if ($value === false) {
             return $default;
         }

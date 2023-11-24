@@ -136,7 +136,7 @@ class Filecache implements CacheInterface
             break;
         }
 
-        $value = unserialize($value);
+        $value = @unserialize($value);
         if ($value === false) {
             return $default;
         }
