@@ -2,23 +2,20 @@
 
 namespace vakata\cache;
 
-class Redis extends CacheAbstract implements CacheInterface
-{
-    use CacheGetSetTrait;
+use DateInterval;
+use DateTime;
 
-    protected $socket = null;
-    protected $namespace = 'default';
-    /**
-     * Create an instance
-     * @param  string      $address          the redis IP and port (127.0.0.1:6379)
-     * @param  string      $defaultNamespace the default namespace to store in (namespaces are collections that can be easily cleared in bulk)
-     */
-    public function __construct($address = '127.0.0.1:6379', $defaultNamespace = 'default')
+class Redis extends AbstractCache
+{
+    protected mixed $socket;
+
+    public function __construct(string $address = '127.0.0.1:6379', string $prefix = '')
     {
+        parent::__construct($prefix);
         $address = parse_url('//' . ltrim($address, '/'));
         if (!$address) { $address = []; }
         $address = array_merge([ 'host' => '127.0.0.1', 'port' => '6379'], $address);
-        $this->socket = fsockopen($address['host'], $address['port'], $num, $str, 3);
+        $this->socket = fsockopen((string)$address['host'], (int)$address['port'], $num, $str, 3);
         if (!$this->socket) {
             throw new CacheException('Could not connect to Redis');
         }
@@ -31,7 +28,11 @@ class Redis extends CacheAbstract implements CacheInterface
         }
     }
 
-    public function command($command)
+    /**
+     * @param string|array<scalar|null> $command
+     * @return mixed
+     */
+    public function command(string|array $command): mixed
     {
         if (!is_array($command)) {
             $command = explode(" ", (string)$command);
@@ -48,44 +49,45 @@ class Redis extends CacheAbstract implements CacheInterface
         }
         return $this->_read();
     }
-    protected function _read()
+    protected function _read(): mixed
     {
         switch (fgetc($this->socket)) {
             case '+':
-                return trim(fgets($this->socket), "\r\n");
+                return trim(fgets($this->socket) ?: '', "\r\n");
             case ':':
-                return (int)trim(fgets($this->socket), "\r\n");
+                return (int)trim(fgets($this->socket) ?: '', "\r\n");
             case '$':
-                $length = (int)trim(fgets($this->socket), "\r\n");
+                $length = (int)trim(fgets($this->socket) ?: '', "\r\n");
                 if ($length === -1) {
                     return null;
                 }
                 $return = "";
                 while (strlen($return) < $length) {
-                    $return .= fread($this->socket, $length - strlen($return));
+                    $return .= fread($this->socket, max(0, $length - strlen($return)));
                 }
                 fgets($this->socket);
                 return $return;
             case '*':
-                $length = (int)trim(fgets($this->socket), "\r\n");
+                $length = (int)trim(fgets($this->socket) ?: '', "\r\n");
                 $return = [];
                 for ($i = 0; $i < $length; $i++) {
                     $return[] = $this->_read();
                 }
                 return $return;
             case '-':
-                throw new CacheException(trim(fgets($this->socket), "\r\n"));
+                throw new CacheException(trim(fgets($this->socket) ?: '', "\r\n"));
         }
+        throw new CacheException(trim(fgets($this->socket) ?: '', "\r\n"));
     }
 
-    protected function _get($key)
+    protected function _get(string $key): mixed
     {
         if (!$this->socket) {
             throw new CacheException('Cache not connected');
         }
         return $this->command(["GET", $key]);
     }
-    protected function _set($key, $val, $exp = null)
+    protected function _set(string $key, mixed $val, int $exp = 0): mixed
     {
         if (!$this->socket) {
             throw new CacheException('Cache not connected');
@@ -93,134 +95,49 @@ class Redis extends CacheAbstract implements CacheInterface
         if ($exp > time()) {
             $exp -= time();
         }
-        return $exp === null ? $this->command(["SET", $key, $val]) : $this->command(["SET", $key, $val, 'EX', $exp]);
+        return $exp === 0 ? $this->command(["SET", $key, $val]) : $this->command(["SET", $key, $val, 'EX', $exp]);
     }
-    protected function _del($key)
+    protected function _del(string $key): mixed
     {
         if (!$this->socket) {
             throw new CacheException('Cache not connected');
         }
         return $this->command(["DEL", $key]);
     }
-    protected function _incr($key)
+
+    public function clear(): void
     {
         if (!$this->socket) {
             throw new CacheException('Cache not connected');
         }
-        return $this->command(["INCR", $key]);
+        $this->command(["FLUSHALL"]);
     }
-
-    protected function addNamespace($key, $partition = null)
+   
+    public function set(string $key, mixed $value, string|int|DateInterval|DateTime $expires = 0): bool
     {
-        if (!$partition) {
-            $partition = $this->namespace;
-        }
-
-        return $partition.'_'.$this->getNamespace($partition).'_'.$key;
+        $key = $this->prefix . $key;
+        $value = serialize($value);
+        $expires = $expires === 0 ? 0 : $this->getExpiresSeconds($expires);
+        return $expires === 0 ?
+            $this->_set($key, $value) :
+            $this->_set($key, $value, $expires);
     }
-    /**
-     * Clears a namespace.
-     * @param  string|null $partition the namespace to clear (if not specified the default namespace is cleared)
-     */
-    public function clear($partition = null)
+    public function get(string $key, mixed $default = null): mixed
     {
-        if (!$partition) {
-            $partition = $this->namespace;
-        }
-        $this->_incr($partition);
-    }
-    /**
-     * Prepare a key for insertion (reserve if you will).
-     * Useful when a long running operation is about to happen and you do not want several clients to update the key at the same time.
-     * @param  string  $key       the key to prepare
-     * @param  string|null  $partition the namespace to store the key in (if not supplied the default will be used)
-     */
-    public function prepare($key, $partition = null)
-    {
-        if (!$partition) {
-            $partition = $this->namespace;
-        }
-        $key = $this->addNamespace($key, $partition);
-    }
-    /**
-     * Stora a value in a key.
-     * @param  string  $key       the key to insert in
-     * @param  mixed   $value     the value to be cached
-     * @param  string|null  $partition the namespace to store the key in (if not supplied the default will be used)
-     * @param  integer|string $expires   time in seconds (or strtotime parseable expression) to store the value for (14400 by default)
-     * @return mixed the value that was stored
-     */
-    public function set($key, $value, $partition = null, $expires = null)
-    {
-        if (!$partition) {
-            $partition = $this->namespace;
-        }
-        if (is_string($expires)) {
-            $expires = (int) strtotime($expires);
-        }
-        if ($expires !== null && (int)$expires < 0) {
-            $expires = 14400;
-        }
-        if ($expires < time() / 2) {
-            $expires += time();
-        }
-        $key = $this->addNamespace($key, $partition);
-        $this->_set($key, serialize(array('created' => time(), 'expires' => $expires, 'data' => $value)), $expires);
-        return $value;
-    }
-    /**
-     * Retrieve a value from cache.
-     * @param  string  $key       the key to retrieve from
-     * @param  mixed  $default   value to return if key is not found (defaults to `null`)
-     * @param  string|null  $partition the namespace to look in (if not supplied the default is used)
-     * @param  boolean $metaOnly  should only metadata be returned (defaults to false)
-     * @return mixed             the stored value
-     */
-    public function get($key, $default = null, $partition = null, $metaOnly = false)
-    {
-        if (!$partition) {
-            $partition = $this->namespace;
-        }
-        $key = $this->addNamespace($key, $partition);
-
-        $cntr = 0;
-        while (true) {
-            $value = $this->_get($key);
-            if ($value === 'wait') {
-                if (++$cntr > 10) {
-                    return $default;
-                }
-                usleep(500000);
-                continue;
-            }
-            break;
-        }
-
-        if ($value === null) {
+        $key = $this->prefix . $key;
+        $value = $this->_get($key);
+        if ($value === false) {
             return $default;
         }
-
         $value = @unserialize($value);
         if ($value === false) {
             return $default;
         }
-        if ($metaOnly) {
-            unset($value['data']);
-            return $value;
-        }
-        return $value['data'];
+        return $value;
     }
-    /**
-     * Remove a cached value.
-     * @param  string $key       the key to remove
-     * @param  string|null $partition the namespace to remove from (if not supplied the default namespace will be used)
-     */
-    public function delete($key, $partition = null)
+    public function delete(string $key): void
     {
-        if (!$partition) {
-            $partition = $this->namespace;
-        }
-        $key = $this->addNamespace($key, $partition);
+        $key = $this->prefix . $key;
         $this->_del($key);
     }
 }
