@@ -17,8 +17,13 @@ class Filecache extends AbstractCache
     }
     public function clear(): void
     {
+        $ignore = [
+            '.gitignore',
+            '.gitkeep',
+            '.htaccess'
+        ];
         foreach (scandir($this->dir) ?: [] as $file) {
-            if (is_file($this->dir . DIRECTORY_SEPARATOR . $file)) {
+            if (is_file($this->dir . DIRECTORY_SEPARATOR . $file) && !in_array($file, $ignore)) {
                 unlink($this->dir . DIRECTORY_SEPARATOR . $file);
             }
         }
