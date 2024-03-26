@@ -36,7 +36,7 @@ class Libmemcached extends AbstractCache
              */
             $server = [ 'host' => '127.0.0.1', 'port' => 11211, 'weight' => 1 ];
             if (is_string($v)) {
-                $v = parse_url('//' . ltrim($v, '/'), PHP_URL_HOST | PHP_URL_PORT);
+                $v = parse_url('//' . ltrim($v, '/'));
                 if (!$v) { $v = []; }
             }
             if (is_array($v) && isset($v['host'])) {
