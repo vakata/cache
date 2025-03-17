@@ -112,7 +112,7 @@ class Redis extends AbstractCache
         }
         $this->command(["FLUSHALL"]);
     }
-   
+
     public function set(string $key, mixed $value, string|int|DateInterval|DateTime $expires = 0): bool
     {
         $key = $this->prefix . $key;
@@ -139,5 +139,18 @@ class Redis extends AbstractCache
     {
         $key = $this->prefix . $key;
         $this->_del($key);
+
+    }
+    public function pop(string $name, int $count = 1): mixed
+    {
+        return $this->command(['LPOP', $name, (string)$count]);
+    }
+    public function push(string $name, string $value): mixed
+    {
+        return $this->command(['RPUSH', $name, $value]);
+    }
+    public function len(string $name): int
+    {
+        return (int)$this->command(['LLEN', $name]);
     }
 }

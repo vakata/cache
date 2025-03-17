@@ -54,4 +54,16 @@ class Libredis extends AbstractCache
         $key = $this->prefix . $key;
         $this->server->del($key);
     }
+    public function pop(string $name, int $count = 1): mixed
+    {
+        return $this->server->lPop($name, (string)$count);
+    }
+    public function push(string $name, string $value): mixed
+    {
+        return $this->server->rPush($name, $value);
+    }
+    public function len(string $name): int
+    {
+        return (int)$this->server->lLen($name);
+    }
 }

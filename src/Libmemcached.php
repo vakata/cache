@@ -63,7 +63,7 @@ class Libmemcached extends AbstractCache
             }
             $this->memcached->setOption(Memcached::OPT_LIBKETAMA_COMPATIBLE, true);
         }
-        if (count($this->memcached->getStats()?:[])) {
+        if (count($this->memcached->getVersion()?:[])) {
             $this->connected = true;
         }
 
