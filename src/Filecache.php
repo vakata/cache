@@ -15,20 +15,22 @@ class Filecache extends AbstractCache
         parent::__construct($prefix);
         $this->dir = realpath($dir) ?: throw new CacheException('Invalid cache dir');
     }
-    public function clear(): void
+    public function clear(): bool
     {
         $ignore = [
             '.gitignore',
             '.gitkeep',
             '.htaccess'
         ];
+        $ret = true;
         foreach (scandir($this->dir) ?: [] as $file) {
             if (is_file($this->dir . DIRECTORY_SEPARATOR . $file) && !in_array($file, $ignore)) {
-                unlink($this->dir . DIRECTORY_SEPARATOR . $file);
+                $ret = $ret && unlink($this->dir . DIRECTORY_SEPARATOR . $file);
             }
         }
+        return $ret;
     }
-    public function set(string $key, mixed $value, string|int|DateInterval|DateTime $expires = 0): bool
+    public function set(string $key, mixed $value, null|string|int|DateInterval|DateTime $expires = 0): bool
     {
         $key = $this->dir . DIRECTORY_SEPARATOR . $this->prefix . $key;
         $expires = $expires === 0 ? 0 : $this->getExpiresTimestamp($expires);
@@ -51,9 +53,9 @@ class Filecache extends AbstractCache
         }
         return $value['data'];
     }
-    public function delete(string $key): void
+    public function delete(string $key): bool
     {
         $key = $this->dir . DIRECTORY_SEPARATOR . $this->prefix . $key;
-        @unlink($key);
+        return @unlink($key);
     }
 }

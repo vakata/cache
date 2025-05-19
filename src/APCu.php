@@ -7,11 +7,11 @@ use DateTime;
 
 class APCu extends AbstractCache
 {
-    public function clear(): void
+    public function clear(): bool
     {
-        \apcu_clear_cache();
+        return \apcu_clear_cache();
     }
-    public function set(string $key, mixed $value, string|int|DateInterval|DateTime $expires = 0): bool
+    public function set(string $key, mixed $value, null|string|int|DateInterval|DateTime $expires = 0): bool
     {
         return \apcu_store(
             $this->prefix . $key,
@@ -32,8 +32,8 @@ class APCu extends AbstractCache
         }
         return $val;
     }
-    public function delete(string $key): void
+    public function delete(string $key): bool
     {
-        \apcu_delete($this->prefix . $key);
+        return \apcu_delete($this->prefix . $key);
     }
 }

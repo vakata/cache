@@ -105,15 +105,16 @@ class Redis extends AbstractCache
         return $this->command(["DEL", $key]);
     }
 
-    public function clear(): void
+    public function clear(): bool
     {
         if (!$this->socket) {
             throw new CacheException('Cache not connected');
         }
         $this->command(["FLUSHALL"]);
+        return true;
     }
 
-    public function set(string $key, mixed $value, string|int|DateInterval|DateTime $expires = 0): bool
+    public function set(string $key, mixed $value, null|string|int|DateInterval|DateTime $expires = 0): bool
     {
         $key = $this->prefix . $key;
         $value = serialize($value);
@@ -135,10 +136,11 @@ class Redis extends AbstractCache
         }
         return $value;
     }
-    public function delete(string $key): void
+    public function delete(string $key): bool
     {
         $key = $this->prefix . $key;
         $this->_del($key);
+        return true;
 
     }
     public function pop(string $name, int $count = 1): mixed

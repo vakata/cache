@@ -7,10 +7,11 @@ use DateTime;
 
 class Dummy extends AbstractCache
 {
-    public function clear(): void
+    public function clear(): bool
     {
+        return true;
     }
-    public function set(string $key, mixed $value, string|int|DateInterval|DateTime $expires = 0): bool
+    public function set(string $key, mixed $value, null|string|int|DateInterval|DateTime $expires = 0): bool
     {
         return true;
     }
@@ -18,10 +19,11 @@ class Dummy extends AbstractCache
     {
         return $default;
     }
-    public function delete(string $key): void
+    public function delete(string $key): bool
     {
+        return true;
     }
-    public function getSet(string $key, callable $value, string|int|DateInterval|DateTime $expires = 0): mixed
+    public function getSet(string $key, callable $value, null|string|int|DateInterval|DateTime $expires = 0): mixed
     {
         return call_user_func($value);
     }

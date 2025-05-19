@@ -4,15 +4,16 @@ namespace vakata\cache;
 
 use DateInterval;
 use DateTime;
+use Psr\SimpleCache\CacheInterface as CI;
 
-interface CacheInterface
+interface CacheInterface extends CI
 {
-    public function clear(): void;
+    public function clear(): bool;
     public function has(string $key): bool;
-    public function set(string $key, mixed $value, string|int|DateInterval|DateTime $expires = 0): bool;
+    public function set(string $key, mixed $value, null|string|int|DateInterval|DateTime $expires = 0): bool;
     public function get(string $key, mixed $default = null): mixed;
-    public function delete(string $key): void;
-    public function getSet(string $key, callable $value, string|int|DateInterval|DateTime $expires = 0): mixed;
+    public function delete(string $key): bool;
+    public function getSet(string $key, callable $value, null|string|int|DateInterval|DateTime $expires = 0): mixed;
     /**
      * @param iterable<string> $keys
      * @param mixed $default
@@ -22,12 +23,12 @@ interface CacheInterface
     /**
      * @param iterable<string,mixed> $values
      * @param integer $expires
-     * @return array<string,bool>
+     * @return bool
      */
-    public function setMultiple(iterable $values, string|int|DateInterval|DateTime $expires = 0): array;
+    public function setMultiple(iterable $values, null|string|int|DateInterval|DateTime $expires = 0): bool;
     /**
      * @param iterable<string> $keys
-     * @return void
+     * @return bool
      */
-    public function deleteMultiple(iterable $keys): void;
+    public function deleteMultiple(iterable $keys): bool;
 }

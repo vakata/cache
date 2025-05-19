@@ -15,11 +15,11 @@ abstract class AbstractCache implements CacheInterface
     }
 
     abstract public function get(string $key, mixed $default = null): mixed;
-    abstract public function set(string $key, mixed $value, string|int|DateInterval|DateTime $expires = 0): bool;
-    abstract public function delete(string $key): void;
-    abstract public function clear(): void;
+    abstract public function set(string $key, mixed $value, null|string|int|DateInterval|DateTime $expires = 0): bool;
+    abstract public function delete(string $key): bool;
+    abstract public function clear(): bool;
 
-    protected function getExpiresTimestamp(int|string|DateInterval|DateTime $expires): int
+    protected function getExpiresTimestamp(null|int|string|DateInterval|DateTime $expires): int
     {
         if ($expires instanceof DateInterval) {
             $expires = (new \DateTime())->add($expires)->getTimestamp();
@@ -30,7 +30,7 @@ abstract class AbstractCache implements CacheInterface
         if (is_string($expires)) {
             $expires = (int)strtotime($expires);
         }
-        if ($expires < 0) {
+        if (!isset($expires) || $expires < 0) {
             $expires = 0;
         }
         if ($expires && $expires < time() / 2) {
@@ -38,12 +38,12 @@ abstract class AbstractCache implements CacheInterface
         }
         return $expires;
     }
-    protected function getExpiresSeconds(int|string|DateInterval|DateTime $expires): int
+    protected function getExpiresSeconds(null|int|string|DateInterval|DateTime $expires): int
     {
         return max(0, $this->getExpiresTimestamp($expires) - time());
     }
 
-    public function getSet(string $key, callable $value, string|int|DateInterval|DateTime $expires = 0): mixed
+    public function getSet(string $key, callable $value, null|string|int|DateInterval|DateTime $expires = 0): mixed
     {
         $cnt = 0;
         do {
@@ -83,19 +83,20 @@ abstract class AbstractCache implements CacheInterface
         }
         return $temp;
     }
-    public function setMultiple(iterable $values, string|int|DateInterval|DateTime $expires = 0): array
+    public function setMultiple(iterable $values, null|string|int|DateInterval|DateTime $expires = 0): bool
     {
         $temp = [];
         foreach ($values as $key => $value) {
             $temp[$key] = $this->set($key, $value, $expires);
         }
-        return $temp;
+        return true;
     }
-    public function deleteMultiple(iterable $keys): void
+    public function deleteMultiple(iterable $keys): bool
     {
         foreach ($keys as $key) {
             $this->delete($key);
         }
+        return true;
     }
     public function has(string $key): bool
     {

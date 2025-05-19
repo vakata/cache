@@ -208,12 +208,13 @@ class SHM extends AbstractCache
         }
     }
 
-    public function clear(): void
+    public function clear(): bool
     {
         $this->reset();
         $this->writeMaster();
+        return true;
     }
-    public function set(string $key, mixed $value, string|int|DateInterval|DateTime $expires = 0): bool
+    public function set(string $key, mixed $value, null|string|int|DateInterval|DateTime $expires = 0): bool
     {
         $key = $this->prefix . $key;
         $expires = $expires === 0 ? 0 : $this->getExpiresTimestamp($expires);
@@ -236,9 +237,10 @@ class SHM extends AbstractCache
         }
         return $value['data'];
     }
-    public function delete(string $key): void
+    public function delete(string $key): bool
     {
         $key = $this->prefix . $key;
         $this->_del($key);
+        return true;
     }
 }

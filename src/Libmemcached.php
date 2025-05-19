@@ -39,13 +39,13 @@ class Libmemcached extends AbstractCache
                 $v = parse_url('//' . ltrim($v, '/'));
                 if (!$v) { $v = []; }
             }
-            if (is_array($v) && isset($v['host'])) {
+            if (isset($v['host'])) {
                 $server['host'] = $v['host'];
             }
-            if (is_array($v) && isset($v['port'])) {
+            if (isset($v['port'])) {
                 $server['port'] = $v['port'];
             }
-            if (is_array($v) && isset($v['weight'])) {
+            if (isset($v['weight'])) {
                 $server['weight'] = $v['weight'];
             }
             $temp[] = $server;
@@ -69,11 +69,11 @@ class Libmemcached extends AbstractCache
 
         return $this->connected;
     }
-    public function clear(): void
+    public function clear(): bool
     {
-        $this->memcached->flush();
+        return $this->memcached->flush();
     }
-    public function set(string $key, mixed $value, string|int|DateInterval|DateTime $expires = 0): bool
+    public function set(string $key, mixed $value, null|string|int|DateInterval|DateTime $expires = 0): bool
     {
         $key = $this->prefix . $key;
         // prefer the more robust seconds approach
@@ -114,8 +114,8 @@ class Libmemcached extends AbstractCache
         }
         return $val;
     }
-    public function delete(string $key): void
+    public function delete(string $key): bool
     {
-        $this->memcached->delete($this->prefix . $key);
+        return $this->memcached->delete($this->prefix . $key);
     }
 }

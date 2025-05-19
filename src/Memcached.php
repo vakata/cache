@@ -75,16 +75,17 @@ class Memcached extends AbstractCache
         fgets($this->socket);
     }
 
-    public function clear(): void
+    public function clear(): bool
     {
         if (!$this->socket) {
             throw new CacheException('Cache not connected');
         }
         fwrite($this->socket, "flush_all" . "\r\n");
         fgets($this->socket);
+        return true;
     }
 
-    public function set(string $key, mixed $value, string|int|DateInterval|DateTime $expires = 0): bool
+    public function set(string $key, mixed $value, null|string|int|DateInterval|DateTime $expires = 0): bool
     {
         $key = $this->prefix . $key;
         // prefer the more robust seconds approach
@@ -126,8 +127,9 @@ class Memcached extends AbstractCache
         }
         return $val;
     }
-    public function delete(string $key): void
+    public function delete(string $key): bool
     {
         $this->_del($this->prefix . $key);
+        return true;
     }
 }
