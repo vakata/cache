@@ -112,7 +112,7 @@ class Memcached extends AbstractCache
         $cnt = 0;
         do {
             $tmp = $this->_get($key . ($cnt > 0 ? '__' . $cnt : ''));
-            if ($tmp === false) {
+            if ($tmp === false || !isset($tmp)) {
                 break;
             }
             $val .= $tmp;
