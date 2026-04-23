@@ -35,7 +35,7 @@ class PHP extends AbstractCache
         $data = [];
         @include $this->file;
         $data['_' . md5($key)] = [
-            'expires' => $expires,
+            'expires' => serialize($expires),
             'value' => $value
         ];
         $temp = $this->file . '.' . uniqid('', true);
@@ -61,6 +61,10 @@ class PHP extends AbstractCache
         }
         $value = $data['_' . md5($key)];
         if ($value['expires'] !== 0 && $value['expires'] < time()) {
+            return $default;
+        }
+        $value = @unserialize($value);
+        if ($value === false) {
             return $default;
         }
         return $value['value'];
